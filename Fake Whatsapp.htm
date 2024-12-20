@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DGK Connection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        header {
+            background-color: #333;
+            color: white;
+            padding: 1em;
+            text-align: center;
+        }
+
+        section {
+            margin: 20px auto;
+            max-width: 600px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        input, textarea, button {
+            width: calc(100% - 20px);
+            margin: 10px auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: block;
+        }
+
+        button {
+            background-color: #333;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        .feed, .user-list, .private-chat {
+            display: none;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+        }
+
+        li:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>DGK Connection</h1>
+        <p>Teile deine Ideen und chatte privat mit anderen!</p>
+    </header>
+
+    <section id="register-section">
+        <h2>Registrieren</h2>
+        <input type="text" id="register-username" placeholder="Benutzername">
+        <input type="email" id="register-email" placeholder="E-Mail">
+        <input type="password" id="register-password" placeholder="Passwort">
+        <button onclick="register()">Registrieren</button>
+    </section>
+
+    <section id="login-section">
+        <h2>Login</h2>
+        <input type="email" id="login-email" placeholder="E-Mail">
+        <input type="password" id="login-password" placeholder="Passwort">
+        <button onclick="login()">Login</button>
+    </section>
+
+    <section id="profile-section" style="display: none;">
+        <h2>Profil</h2>
+        <p><strong>Benutzername:</strong> <span id="profile-username"></span></p>
+        <p><strong>E-Mail:</strong> <span id="profile-email"></span></p>
+        <button onclick="logout()">Logout</button>
+        <button onclick="showFeed()">Community Feed ansehen</button>
+    </section>
+
+    <section id="upload-section" class="feed">
+        <h2>Neuen Beitrag erstellen</h2>
+        <textarea id="content" placeholder="Teile etwas mit der Community..."></textarea>
+        <button onclick="uploadContent()">Hochladen</button>
+    </section>
+
+    <section id="feed-section" class="feed">
+        <h2>Community-Feed</h2>
+        <div id="feed">
+            <!-- Beiträge werden hier eingefügt -->
+        </div>
+    </section>
+
+    <section id="user-list" class="user-list">
+        <h2>Benutzerliste</h2>
+        <input type="text" id="search-user" placeholder="Benutzer suchen..." onkeyup="filterUsers()">
+        <ul id="users">
+            <!-- Benutzer werden hier angezeigt -->
+        </ul>
+    </section>
+
+    <section id="private-chat" class="private-chat">
+        <h2 id="chat-with">Chat mit: </h2>
+        <div id="private-chat-window">
+            <!-- Private Nachrichten werden hier angezeigt -->
+        </div>
+        <textarea id="private-message" placeholder="Nachricht schreiben..."></textarea>
+        <button onclick="sendPrivateMessage()">Senden</button>
+    </section>
+
+    <script>
+        const API_URL = 'http://localhost:5000';
+
+        let currentUser = null;
+        const feed = document.getElementById('feed');
+        const userList = document.getElementById('users');
+        const privateChat = document.getElementById('private-chat');
+        const chatWindow = document.getElementById('private-chat-window');
+        const chatWith = document.getElementById('chat-with');
+
+        async function register() {
+            const username = document.getElementById('register-username').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+
+            const response = await fetch(`${API_URL}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password })
+            });
+
+            const data = await response.json();
+            alert(data.message);
+        }
+
+        async function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            const response = await fetch(`${API_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                currentUser = data;
+                document.getElementById('profile-username').textContent = data.username;
+                document.getElementById('profile-email').textContent = data.email;
+
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('register-section').style.display = 'none';
+                document.getElementById('profile-section').style.display = 'block';
+
+                loadFeed();
+                loadUsers();
+            } else {
+                alert(data.message);
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('profile-section').style.display = 'none';
+            document.getElementById('login-section').style.display = 'block';
+            document.getElementById('register-section').style.display = 'block';
+        }
+
+        async function uploadContent() {
+            const content = document.getElementById('content').value;
+
+            const response = await fetch(`${API_URL}/posts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content, author: currentUser.username })
+            });
+
+            const data = await response.json();
+            alert(data.message);
+            loadFeed();
+        }
+
+        async function loadFeed() {
+            const response = await fetch(`${API_URL}/posts`);
+            const posts = await response.json();
+
+            feed.innerHTML = '';
+            posts.forEach(post => {
+                const postElement = document.createElement('div');
+                postElement.classList.add('message');
+                postElement.textContent = `${post.author}: ${post.content}`;
+                feed.appendChild(postElement);
+            });
+        }
+
+        async function loadUsers() {
+            userList.innerHTML = '';
+            // Replace with API call if a dynamic user list is needed
+            const users = ["Alice", "Bob", "Charlie", "David"]; // Static list for now
+
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.textContent = user;
+                li.onclick = () => openPrivateChat(user);
+                userList.appendChild(li);
+            });
+        }
+
+        function filterUsers() {
+            const query = document.getElementById('search-user').value.toLowerCase();
+            const items = userList.getElementsByTagName('li');
+            for (let item of items) {
+                item.style.display = item.textContent.toLowerCase().includes(query) ? 'block' : 'none';
+            }
+        }
+
+        async function openPrivateChat(user) {
+            privateChat.style.display = 'block';
+            chatWith.textContent = `Chat mit: ${user}`;
+            chatWindow.innerHTML = '';
+
+            const response = await fetch(`${API_URL}/messages?sender=${currentUser.username}&receiver=${user}`);
+            const messages = await response.json();
+
+            messages.forEach(msg => {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message');
+                messageElement.textContent = `${msg.sender}: ${msg.message}`;
+                chatWindow.appendChild(messageElement);
+            });
+        }
+
+        async function sendPrivateMessage() {
+            const message = document.getElementById('private-message').value;
+            const receiver = chatWith.textContent.replace('Chat mit: ', '');
+
+            const response = await fetch(`${API_URL}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender: currentUser.username, receiver, message })
+            });
+
+            const data = await response.json();
+            alert(data.message);
+            openPrivateChat(receiver);
+        }
+    </script>
+</body>
+</html>
